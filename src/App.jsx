@@ -10,13 +10,13 @@ import LanguageToggle from './components/LanguageToggle';
 import { useLanguage } from './context/LanguageContext';
 import { getPortalFromHostname, parseHashRoute, syncHashRoute } from './utils/navigation';
 import { registerServiceWorker } from './utils/notifications';
-import { GraduationCap, DatabaseZap, WifiOff } from 'lucide-react';
+import { GraduationCap, DatabaseZap, WifiOff, Eye, EyeOff } from 'lucide-react';
 import PullToRefresh from './components/PullToRefresh';
 
 function AppContent() {
   const { t } = useLanguage();
   const defaultPortal = getPortalFromHostname();
-  const [view, setView] = useState(defaultPortal);
+  const [view, setView] = useState(() => parseHashRoute()?.view || defaultPortal);
   const [config] = useState(getSupabaseConfig());
   const [urlInput, setUrlInput] = useState('');
   const [keyInput, setKeyInput] = useState('');
@@ -45,12 +45,26 @@ function AppContent() {
     });
   }, [selectedBatch?.id, selectedExam?.id]);
 
+  const applyPortalView = useCallback((portalView, tab) => {
+    if (portalView === 'teacher') {
+      setTeacherTab(tab || 'batches');
+      setView('teacher');
+    } else if (portalView === 'exam-setup') {
+      setView('exam-setup');
+    } else if (portalView === 'student') {
+      setStudentTab(tab || 'batches');
+      setView('student');
+    } else {
+      setView(defaultPortal);
+    }
+  }, [defaultPortal]);
+
   const restoreRoute = useCallback(async () => {
     const hashRoute = parseHashRoute();
-    const portal = hashRoute?.view || defaultPortal;
+    const portalFromHash = hashRoute?.view;
 
     if (!supabase) {
-      setView(portal);
+      applyPortalView(portalFromHash || defaultPortal, hashRoute?.tab);
       setRouteReady(true);
       return;
     }
@@ -87,18 +101,13 @@ function AppContent() {
       setSelectedExam(exam);
       if (batch) setSelectedBatch(batch);
       setView('exam-session');
-    } else if (hashRoute?.view === defaultPortal) {
-      if (defaultPortal === 'teacher') {
-        setTeacherTab(hashRoute.tab || 'batches');
-      } else if (defaultPortal === 'student') {
-        setStudentTab(hashRoute.tab || 'batches');
-      }
-      setView(defaultPortal);
+    } else if (portalFromHash === 'teacher' || portalFromHash === 'exam-setup' || portalFromHash === 'student') {
+      applyPortalView(portalFromHash, hashRoute.tab);
     } else {
-      setView(defaultPortal);
+      applyPortalView(defaultPortal);
     }
     setRouteReady(true);
-  }, [defaultPortal]);
+  }, [defaultPortal, applyPortalView]);
 
   useEffect(() => {
     registerServiceWorker();
@@ -116,9 +125,15 @@ function AppContent() {
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) setCurrentUserId(session.user.id);
       });
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (session) setCurrentUserId(session.user.id);
-        else setCurrentUserId(null);
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (session) {
+          setCurrentUserId(session.user.id);
+          if (event === 'PASSWORD_RECOVERY') {
+            setView('reset-password');
+          }
+        } else {
+          setCurrentUserId(null);
+        }
       });
       return () => subscription.unsubscribe();
     }
@@ -216,6 +231,15 @@ function AppContent() {
 
           {view === 'exam-setup' && <ExamSetupPage onBack={goHome} />}
 
+          {view === 'reset-password' && (
+            <ResetPasswordView 
+              onComplete={() => {
+                setView('student');
+                syncHashRoute({ view: 'student' }, true);
+              }}
+            />
+          )}
+
           {view === 'batch-detail' && selectedBatch && (
             <BatchDetail
               batch={selectedBatch}
@@ -249,6 +273,127 @@ function AppContent() {
         </main>
       </div>
     </PullToRefresh>
+  );
+}
+
+function ResetPasswordView({ onComplete }) {
+  const { t } = useLanguage();
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: password,
+      });
+
+      if (updateError) throw updateError;
+
+      setSuccess('Your password has been reset successfully! Redirecting...');
+      setTimeout(async () => {
+        await supabase.auth.signOut();
+        onComplete();
+      }, 3000);
+    } catch (err) {
+      setError(err.message || 'Failed to update password');
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="auth-screen">
+      <div className="auth-card glass" style={{ maxWidth: '400px', width: '100%' }}>
+        <h3 className="auth-title">Choose New Password</h3>
+        <p className="text-secondary" style={{ fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>
+          Enter a secure password containing at least 6 characters.
+        </p>
+
+        {error && <div className="alert-banner alert-banner-danger"><div>{error}</div></div>}
+        {success && <div className="alert-banner alert-banner-success"><div>{success}</div></div>}
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">New Password</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className="input-control"
+                style={{ paddingRight: '2.5rem' }}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="At least 6 chars"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '0.75rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '0.25rem',
+                }}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Confirm New Password</label>
+            <input
+              type="password"
+              className="input-control"
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirm new password"
+            />
+          </div>
+
+          <button type="submit" className="btn btn-primary btn-block mt-4" disabled={loading}>
+            {loading ? 'Updating...' : 'Update Password'}
+          </button>
+          
+          <button 
+            type="button" 
+            className="btn btn-secondary btn-block mt-2" 
+            onClick={async () => {
+              await supabase.auth.signOut();
+              onComplete();
+            }}
+            disabled={loading}
+          >
+            Cancel
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }
 

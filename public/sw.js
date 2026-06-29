@@ -70,3 +70,16 @@ self.addEventListener('notificationclick', (event) => {
 self.addEventListener('notificationclose', (event) => {
   // Optionally track dismissals here
 });
+
+// Fetch event listener to satisfy Chrome PWA installability criteria
+self.addEventListener('fetch', (event) => {
+  // Only handle GET requests
+  if (event.request.method !== 'GET') return;
+
+  event.respondWith(
+    fetch(event.request).catch((error) => {
+      console.warn('[Service Worker] Fetch failed; returning offline error.', error);
+    })
+  );
+});
+

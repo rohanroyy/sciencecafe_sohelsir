@@ -29,6 +29,10 @@ export default function StudentDashboard({ onSelectBatch, onBack, initialTab = '
   const [loginPhone, setLoginPhone] = useState('');
   const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [resetSuccess, setResetSuccess] = useState('');
 
   const [registerForm, setRegisterForm] = useState({
     name: '',
@@ -321,6 +325,42 @@ export default function StudentDashboard({ onSelectBatch, onBack, initialTab = '
     }
   };
 
+  const handleRequestReset = async (e) => {
+    e.preventDefault();
+    setResetError('');
+    setResetSuccess('');
+    setLoading(true);
+
+    if (!resetEmail.trim()) {
+      setResetError('Email address is required');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/send-password-reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: resetEmail.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send reset link.');
+      }
+
+      setResetSuccess('A beautiful password reset link has been emailed to you. Please check your inbox.');
+      setResetEmail('');
+    } catch (err) {
+      setResetError(err.message || 'Error occurred while sending password reset request');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleRegister = async (e) => {
     e.preventDefault();
     setRegisterError('');
@@ -596,6 +636,48 @@ export default function StudentDashboard({ onSelectBatch, onBack, initialTab = '
     );
   }
 
+  if (!session && forgotPasswordMode) {
+    return (
+      <div className="auth-screen">
+        <div className="auth-card glass">
+          {authToolbar}
+          <div className="auth-logo" style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <img 
+              src={theme === 'dark' ? '/black logo.svg' : '/white logo.svg'} 
+              alt="Science Cafe" 
+              style={{ maxHeight: '144px', width: 'auto', display: 'inline-block' }} 
+            />
+          </div>
+          <h3 className="auth-title">Reset Password</h3>
+          <p className="text-secondary" style={{ fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>
+            Enter your registered email address. We will email you a password reset link.
+          </p>
+          {resetError && <div className="alert-banner alert-banner-danger"><div>{resetError}</div></div>}
+          {resetSuccess && <div className="alert-banner alert-banner-success"><div>{resetSuccess}</div></div>}
+          <form onSubmit={handleRequestReset}>
+            <div className="form-group">
+              <label className="form-label">Email Address</label>
+              <input 
+                type="email" 
+                className="input-control" 
+                required 
+                value={resetEmail} 
+                onChange={(e) => setResetEmail(e.target.value)} 
+                placeholder="student@mail.com"
+              />
+            </div>
+            <button type="submit" className="btn btn-primary btn-block mt-4" disabled={loading}>
+              {loading ? 'Sending...' : 'Send Reset Link'}
+            </button>
+            <button type="button" className="btn btn-secondary btn-block mt-2" onClick={() => setForgotPasswordMode(false)}>
+              Back to Login
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   if (!session) {
     return (
       <div className="auth-screen">
@@ -617,7 +699,12 @@ export default function StudentDashboard({ onSelectBatch, onBack, initialTab = '
               <input type="text" className="input-control" required value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} />
             </div>
             <div className="form-group">
-              <label className="form-label">{t('password')}</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label className="form-label">{t('password')}</label>
+                <button type="button" onClick={() => { setForgotPasswordMode(true); setResetError(''); setResetSuccess(''); }} className="btn-link" style={{ fontSize: '0.8rem', background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0 }}>
+                  Forgot Password?
+                </button>
+              </div>
               <div style={{ position: 'relative' }}>
                 <input
                   type={showPassword ? 'text' : 'password'}
