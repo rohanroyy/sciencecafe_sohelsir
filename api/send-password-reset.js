@@ -1,4 +1,36 @@
 import { createClient } from '@supabase/supabase-js';
+import fs from 'fs';
+import path from 'path';
+
+// Helper to load local .env in development when process.env variables are missing
+function loadEnv() {
+  try {
+    const envPath = path.join(process.cwd(), '.env');
+    if (fs.existsSync(envPath)) {
+      const envContent = fs.readFileSync(envPath, 'utf-8');
+      envContent.split(/\r?\n/).forEach(line => {
+        const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+        if (match) {
+          const key = match[1];
+          let value = match[2] || '';
+          if (value.length > 0 && value.charAt(0) === '"' && value.charAt(value.length - 1) === '"') {
+            value = value.substring(1, value.length - 1);
+          } else if (value.length > 0 && value.charAt(0) === "'" && value.charAt(value.length - 1) === "'") {
+            value = value.substring(1, value.length - 1);
+          }
+          if (!process.env[key]) {
+            process.env[key] = value.trim();
+          }
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('Failed to load local .env file:', err);
+  }
+}
+
+// Load env variables
+loadEnv();
 
 export default async function handler(req, res) {
   // Add CORS headers
