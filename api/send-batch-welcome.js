@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import nodemailer from 'nodemailer';
 
 // Helper to load local .env in development
 function loadEnv() {
@@ -183,38 +184,36 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'studentEmail, studentName, teacherName, and batchTitle are required.' });
   }
 
-  const resendApiKey = process.env.RESEND_API_KEY;
+  const gmailEmail = process.env.GMAIL_EMAIL;
+  const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
 
-  if (!resendApiKey) {
-    return res.status(500).json({ error: 'Resend API Key is not configured on the server.' });
+  if (!gmailEmail || !gmailAppPassword) {
+    return res.status(500).json({ error: 'Gmail email or App Password is not configured on the server.' });
   }
 
   try {
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'Science Cafe <onboarding@resend.dev>';
     const html = buildWelcomeEmail({ studentName, teacherName, batchTitle, subjects: subjects || [] });
 
-    const resendResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${resendApiKey}`
+    console.log('Sending batch welcome email to:', studentEmail);
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: gmailEmail,
+        pass: gmailAppPassword,
       },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: studentEmail,
-        subject: '🎉 Science Cafe with Sohel Sir এ তোমাকে স্বাগতম!',
-        html
-      })
     });
 
-    const resendData = await resendResponse.json();
+    const mailOptions = {
+      from: `"Science Cafe" <${gmailEmail}>`,
+      to: studentEmail,
+      subject: '🎉 Science Cafe with Sohel Sir এ তোমাকে স্বাগতম!',
+      html,
+    };
 
-    if (!resendResponse.ok) {
-      console.error('Resend error:', resendData);
-      return res.status(resendResponse.status).json({ error: resendData.message || 'Failed to send welcome email.' });
-    }
+    await transporter.sendMail(mailOptions);
 
-    console.log('Batch welcome email sent to:', studentEmail);
+    console.log('Batch welcome email sent successfully via Gmail SMTP.');
     return res.status(200).json({ message: 'Welcome email sent successfully.' });
   } catch (err) {
     console.error('Internal error:', err);

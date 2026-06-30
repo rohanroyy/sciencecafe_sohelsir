@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import path from 'path';
+import nodemailer from 'nodemailer';
 
 // Helper to load local .env in development when process.env variables are missing
 function loadEnv() {
@@ -127,14 +128,15 @@ export default async function handler(req, res) {
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const resendApiKey = process.env.RESEND_API_KEY;
+  const gmailEmail = process.env.GMAIL_EMAIL;
+  const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
 
   if (!supabaseUrl || !serviceRoleKey) {
     return res.status(500).json({ error: 'Supabase URL or Service Role Key is not configured on the server.' });
   }
 
-  if (!resendApiKey) {
-    return res.status(500).json({ error: 'Resend API Key is not configured on the server.' });
+  if (!gmailEmail || !gmailAppPassword) {
+    return res.status(500).json({ error: 'Gmail email or App Password is not configured on the server.' });
   }
 
   try {
@@ -203,30 +205,26 @@ export default async function handler(req, res) {
       <p class="disclaimer">তুমি যদি পাসওয়ার্ড রিসেটের অনুরোধ না করে থাকো, তাহলে এই ইমেইলটি উপেক্ষা করো।</p>
     `;
 
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'Science Cafe <onboarding@resend.dev>';
+    console.log('Sending password reset email to:', email);
 
-    const resendResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${resendApiKey}`
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: gmailEmail,
+        pass: gmailAppPassword,
       },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: email,
-        subject: '🔐 Science Cafe — পাসওয়ার্ড রিসেট',
-        html: buildEmailWrapper(bodyHtml)
-      })
     });
 
-    const resendData = await resendResponse.json();
+    const mailOptions = {
+      from: `"Science Cafe" <${gmailEmail}>`,
+      to: email,
+      subject: '🔐 Science Cafe — পাসওয়ার্ড রিসেট',
+      html: buildEmailWrapper(bodyHtml),
+    };
 
-    if (!resendResponse.ok) {
-      console.error('Resend error:', resendData);
-      return res.status(resendResponse.status).json({ error: resendData.message || 'Failed to send email.' });
-    }
+    await transporter.sendMail(mailOptions);
 
-    console.log('Password reset email sent:', resendData);
+    console.log('Password reset email sent successfully via Gmail SMTP.');
     return res.status(200).json({ message: 'Password reset link sent successfully.' });
   } catch (err) {
     console.error('Internal error:', err);
