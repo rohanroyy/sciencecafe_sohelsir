@@ -54,7 +54,7 @@ export default function StudentDashboard({ onSelectBatch, onBack, initialTab = '
   const [batchInstructors, setBatchInstructors] = useState([]);
   const [batchUnread, setBatchUnread] = useState({});
   const knownContentRef = React.useRef({});
-  
+
   const [profileForm, setProfileForm] = useState({
     photo_url: '',
     dob: '',
@@ -211,7 +211,7 @@ export default function StudentDashboard({ onSelectBatch, onBack, initialTab = '
     const pollAndNotify = async () => {
       // Sync latest read markers from the database first
       await syncReadStateFromServer(student.id);
-      
+
       // 1. Refresh unread badge counts for all batches
       fetchUnreadCounts(student.id, enrolledBatches);
 
@@ -352,7 +352,7 @@ export default function StudentDashboard({ onSelectBatch, onBack, initialTab = '
         throw new Error(data.error || 'Failed to send reset link.');
       }
 
-      setResetSuccess('A beautiful password reset link has been emailed to you. Please check your inbox.');
+      setResetSuccess('A password reset link has been emailed to you. Please check your inbox.');
       setResetEmail('');
     } catch (err) {
       setResetError(err.message || 'Error occurred while sending password reset request');
@@ -460,7 +460,7 @@ export default function StudentDashboard({ onSelectBatch, onBack, initialTab = '
         .eq('id', student.id);
 
       if (error) throw error;
-      
+
       setProfileSuccess('Profile updated successfully!');
       // Refetch profile
       fetchStudentProfile(student.id);
@@ -642,10 +642,10 @@ export default function StudentDashboard({ onSelectBatch, onBack, initialTab = '
         <div className="auth-card glass">
           {authToolbar}
           <div className="auth-logo" style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <img 
-              src={theme === 'dark' ? '/black logo.svg' : '/white logo.svg'} 
-              alt="Science Cafe" 
-              style={{ maxHeight: '144px', width: 'auto', display: 'inline-block' }} 
+            <img
+              src={theme === 'dark' ? '/black logo.svg' : '/white logo.svg'}
+              alt="Science Cafe"
+              style={{ maxHeight: '144px', width: 'auto', display: 'inline-block' }}
             />
           </div>
           <h3 className="auth-title">Reset Password</h3>
@@ -657,12 +657,12 @@ export default function StudentDashboard({ onSelectBatch, onBack, initialTab = '
           <form onSubmit={handleRequestReset}>
             <div className="form-group">
               <label className="form-label">Email Address</label>
-              <input 
-                type="email" 
-                className="input-control" 
-                required 
-                value={resetEmail} 
-                onChange={(e) => setResetEmail(e.target.value)} 
+              <input
+                type="email"
+                className="input-control"
+                required
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
                 placeholder="student@mail.com"
               />
             </div>
@@ -682,13 +682,13 @@ export default function StudentDashboard({ onSelectBatch, onBack, initialTab = '
     return (
       <div className="auth-screen">
         <div className="auth-card glass">
-          
+
           {authToolbar}
           <div className="auth-logo" style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <img 
-              src={theme === 'dark' ? '/black logo.svg' : '/white logo.svg'} 
-              alt="Science Cafe" 
-              style={{ maxHeight: '144px', width: 'auto', display: 'inline-block' }} 
+            <img
+              src={theme === 'dark' ? '/black logo.svg' : '/white logo.svg'}
+              alt="Science Cafe"
+              style={{ maxHeight: '144px', width: 'auto', display: 'inline-block' }}
             />
           </div>
           <h3 className="auth-title">{t('studentLogin')}</h3>
@@ -805,7 +805,7 @@ export default function StudentDashboard({ onSelectBatch, onBack, initialTab = '
       {activeTab === 'batches' && (
         <div>
           <h3 className="section-title">{t('enrolledBatches')}</h3>
-          
+
           {/* Notification permission prompt — only visible when permission not yet decided or denied */}
           {(notificationPermissionStatus === 'default' || notificationPermissionStatus === 'denied') && (
             <div
@@ -992,11 +992,11 @@ export default function StudentDashboard({ onSelectBatch, onBack, initialTab = '
               </div>
             </form>
           )}
-          
+
           <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
-            <button 
-              type="button" 
-              className="btn btn-danger btn-block" 
+            <button
+              type="button"
+              className="btn btn-danger btn-block"
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
               onClick={handleLogout}
             >

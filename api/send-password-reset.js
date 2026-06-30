@@ -32,15 +32,83 @@ function loadEnv() {
 // Load env variables
 loadEnv();
 
+/**
+ * Builds the shared email header/footer HTML (logo + Hind Siliguri font import)
+ */
+function buildEmailWrapper(bodyHtml) {
+  const origin = process.env.VITE_SUPABASE_URL
+    ? 'https://sciencecafesohelsir.vercel.app'
+    : 'http://localhost:5173';
+
+  return `<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Hind Siliguri', sans-serif;
+      background-color: #0f0a06;
+      color: #e8e0d8;
+      margin: 0;
+      padding: 32px 16px;
+    }
+    .outer {
+      max-width: 560px;
+      margin: 0 auto;
+    }
+    .logo-wrap {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .logo-wrap img {
+      max-height: 80px;
+      width: auto;
+    }
+    .card {
+      background: linear-gradient(145deg, #1c1208 0%, #241709 100%);
+      border: 1px solid #3a2a1a;
+      border-radius: 16px;
+      padding: 36px 32px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    }
+    .footer {
+      text-align: center;
+      margin-top: 28px;
+      font-size: 12px;
+      color: #6b5c4d;
+      font-family: 'Hind Siliguri', sans-serif;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="outer">
+    <div class="logo-wrap">
+      <img src="https://sciencecafesohelsir.vercel.app/black%20logo.svg" alt="Science Cafe with Sohel Sir" />
+    </div>
+    <div class="card">
+      ${bodyHtml}
+    </div>
+    <div class="footer">
+      &copy; 2026 Science Cafe with Sohel Sir. সর্বস্বত্ব সংরক্ষিত।<br>
+      এই ইমেইলটি স্বয়ংক্রিয়ভাবে পাঠানো হয়েছে, উত্তর দেওয়ার প্রয়োজন নেই।
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 export default async function handler(req, res) {
-  // Add CORS headers
+  // CORS headers
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -51,7 +119,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { email } = req.body;
+  const { email, studentName } = req.body;
 
   if (!email) {
     return res.status(400).json({ error: 'Email is required' });
@@ -71,10 +139,7 @@ export default async function handler(req, res) {
 
   try {
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
+      auth: { autoRefreshToken: false, persistSession: false }
     });
 
     // Determine redirect URL
@@ -83,13 +148,10 @@ export default async function handler(req, res) {
 
     console.log(`Generating recovery link for: ${email} (Redirect to: ${redirectTo})`);
 
-    // Generate the recovery link
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email: email,
-      options: {
-        redirectTo: redirectTo
-      }
+      options: { redirectTo }
     });
 
     if (error) {
@@ -98,98 +160,51 @@ export default async function handler(req, res) {
     }
 
     const resetLink = data.properties.action_link;
+    const greeting = studentName ? `আস্সালামু আলাইকুম <strong>${studentName}</strong>,` : 'আস্সালামু আলাইকুম,';
 
-    // Send email via Resend API
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'Science Cafe <onboarding@resend.dev>';
-    const emailBody = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Reset Your Password</title>
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #120c08;
-            color: #f3f3f3;
-            margin: 0;
-            padding: 40px 20px;
-          }
-          .card {
-            max-width: 500px;
-            margin: 0 auto;
-            background-color: #1a1410;
-            border: 1px solid #2d241e;
-            border-radius: 12px;
-            padding: 32px;
-            text-align: center;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-          }
-          .logo {
-            font-size: 24px;
-            font-weight: bold;
-            color: #ff5900;
-            margin-bottom: 24px;
-            letter-spacing: 0.5px;
-          }
-          h2 {
-            font-size: 22px;
-            margin-bottom: 12px;
-            color: #ffffff;
-          }
-          p {
-            font-size: 15px;
-            line-height: 1.6;
-            color: #d1c7bd;
-            margin-bottom: 24px;
-          }
-          .btn {
-            display: inline-block;
-            background-color: #ff5900;
-            color: #ffffff !important;
-            text-decoration: none;
-            padding: 12px 28px;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 15px;
-            margin-bottom: 24px;
-            box-shadow: 0 4px 12px rgba(255, 89, 0, 0.25);
-            transition: background-color 0.15s;
-          }
-          .btn:hover {
-            background-color: #e04e00;
-          }
-          .footer {
-            font-size: 12px;
-            color: #8c8075;
-            border-top: 1px solid #2d241e;
-            padding-top: 20px;
-            margin-top: 10px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <div class="logo">Science Cafe</div>
-          <h2>Password Reset Request</h2>
-          <p>Hello,</p>
-          <p>We received a request to reset your password for your Science Cafe student account. Click the button below to choose a new password.</p>
-          <a href="${resetLink}" class="btn" target="_blank">Reset Password</a>
-          <p style="font-size: 13px; color: #8c8075; word-break: break-all;">
-            If the button doesn't work, copy and paste this link in your browser:<br>
-            <a href="${resetLink}" style="color: #ff5900; text-decoration: none;">${resetLink}</a>
-          </p>
-          <div class="footer">
-            If you did not request a password reset, you can safely ignore this email.<br>
-            &copy; 2026 Science Cafe with Sohel Sir. All rights reserved.
-          </div>
-        </div>
-      </body>
-      </html>
+    const bodyHtml = `
+      <style>
+        h2 { font-family: 'Hind Siliguri', sans-serif; color: #ff5900; font-size: 20px; margin-bottom: 20px; text-align: center; font-weight: 700; }
+        p { font-family: 'Hind Siliguri', sans-serif; font-size: 15px; line-height: 1.85; color: #d1c7bd; margin-bottom: 16px; }
+        .btn-wrap { text-align: center; margin: 28px 0; }
+        .btn {
+          display: inline-block;
+          background: linear-gradient(135deg, #ff5900 0%, #ff7a30 100%);
+          color: #ffffff !important;
+          text-decoration: none;
+          padding: 14px 36px;
+          border-radius: 8px;
+          font-weight: 700;
+          font-size: 16px;
+          font-family: 'Hind Siliguri', sans-serif;
+          box-shadow: 0 4px 16px rgba(255,89,0,0.35);
+          letter-spacing: 0.3px;
+        }
+        .link-fallback { font-size: 12px; color: #8c8075; word-break: break-all; text-align: center; }
+        .link-fallback a { color: #ff5900; text-decoration: none; }
+        .divider { border: none; border-top: 1px solid #3a2a1a; margin: 20px 0; }
+        .disclaimer { font-size: 12px; color: #6b5c4d; font-family: 'Hind Siliguri', sans-serif; text-align: center; }
+      </style>
+
+      <h2>🔐 পাসওয়ার্ড রিসেট</h2>
+      <p>${greeting}</p>
+      <p>আমরা তোমার অ্যাকাউন্টের পাসওয়ার্ড রিসেটের একটি অনুরোধ পেয়েছি। নিচের বোতামে ক্লিক করে নতুন পাসওয়ার্ড সেট করো।</p>
+
+      <div class="btn-wrap">
+        <a href="${resetLink}" class="btn" target="_blank">নতুন পাসওয়ার্ড সেট করো</a>
+      </div>
+
+      <p class="link-fallback">
+        বোতামটি কাজ না করলে, এই লিংকটি কপি করে ব্রাউজারে পেস্ট করো:<br>
+        <a href="${resetLink}">${resetLink}</a>
+      </p>
+
+      <hr class="divider">
+      <p class="disclaimer">তুমি যদি পাসওয়ার্ড রিসেটের অনুরোধ না করে থাকো, তাহলে এই ইমেইলটি উপেক্ষা করো।</p>
     `;
 
-    console.log('Sending email to:', email);
-    
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'Science Cafe <onboarding@resend.dev>';
+
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -199,22 +214,22 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         from: fromEmail,
         to: email,
-        subject: 'Reset your password - Science Cafe',
-        html: emailBody
+        subject: '🔐 Science Cafe — পাসওয়ার্ড রিসেট',
+        html: buildEmailWrapper(bodyHtml)
       })
     });
 
     const resendData = await resendResponse.json();
 
     if (!resendResponse.ok) {
-      console.error('Resend email delivery error:', resendData);
-      return res.status(resendResponse.status).json({ error: resendData.message || 'Failed to send email via Resend.' });
+      console.error('Resend error:', resendData);
+      return res.status(resendResponse.status).json({ error: resendData.message || 'Failed to send email.' });
     }
 
-    console.log('Resend email sent successfully:', resendData);
+    console.log('Password reset email sent:', resendData);
     return res.status(200).json({ message: 'Password reset link sent successfully.' });
   } catch (err) {
-    console.error('Internal server error:', err);
+    console.error('Internal error:', err);
     return res.status(500).json({ error: err.message || 'Internal server error' });
   }
 }

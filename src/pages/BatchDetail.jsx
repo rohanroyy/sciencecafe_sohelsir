@@ -378,10 +378,44 @@ export default function BatchDetail({ batch, role, userId, onBack, onStartExam, 
         .insert([{ batch_id: batch.id, student_id: studentId }]);
       if (error) throw error;
       fetchEnrolledStudents();
+
+      // Send welcome email in background (fire-and-forget, don't block UI)
+      try {
+        // Fetch student details (name + email)
+        const { data: studentData } = await supabase
+          .from('students')
+          .select('name, email')
+          .eq('id', studentId)
+          .maybeSingle();
+
+        // Fetch teacher name
+        const { data: teacherData } = await supabase
+          .from('teachers')
+          .select('name')
+          .eq('id', batch.teacher_id)
+          .maybeSingle();
+
+        if (studentData?.email) {
+          fetch('/api/send-batch-welcome', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              studentEmail: studentData.email,
+              studentName: studentData.name || 'শিক্ষার্থী',
+              teacherName: teacherData?.name || 'শিক্ষক',
+              batchTitle: batch.title,
+              subjects: batch.subjects || [],
+            }),
+          }).catch(err => console.warn('Welcome email failed (non-critical):', err));
+        }
+      } catch (emailErr) {
+        console.warn('Could not send welcome email (non-critical):', emailErr);
+      }
     } catch (err) {
       alert(err.message || 'Error enrolling student');
     }
   };
+
 
   // Remove student from batch
   const handleUnenrollStudent = async (studentId) => {
