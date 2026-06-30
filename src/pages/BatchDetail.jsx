@@ -735,7 +735,6 @@ export default function BatchDetail({ batch, role, userId, onBack, onStartExam, 
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
                     <div className="form-group">
                       <label className="form-label">Exam Date</label>
                       <input
@@ -745,7 +744,7 @@ export default function BatchDetail({ batch, role, userId, onBack, onStartExam, 
                         onChange={(e) => setExamForm({ ...examForm, exam_date: e.target.value })}
                       />
                     </div>
-                    <div className="form-group">
+                    <div className="form-group mt-4">
                       <label className="form-label">Duration (Mins)</label>
                       <input
                         type="number"
@@ -754,7 +753,7 @@ export default function BatchDetail({ batch, role, userId, onBack, onStartExam, 
                         onChange={(e) => setExamForm({ ...examForm, duration: parseInt(e.target.value) || 0 })}
                       />
                     </div>
-                  </div>
+                
 
                   <div className="form-group mt-2">
                     <label className="form-label">Upload MCQ Excel File</label>
