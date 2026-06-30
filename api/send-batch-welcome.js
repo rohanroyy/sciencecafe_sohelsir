@@ -134,7 +134,9 @@ export default async function handler(req, res) {
     console.log('Sending batch welcome email to:', studentEmail);
 
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
       auth: {
         user: gmailEmail,
         pass: gmailAppPassword,

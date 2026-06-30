@@ -338,21 +338,45 @@ export default function StudentDashboard({ onSelectBatch, onBack, initialTab = '
     }
 
     try {
+      // Look up student name from DB so we can personalize the email
+      let studentName = '';
+      try {
+        const { data: studentRecord } = await supabase
+          .from('students')
+          .select('name')
+          .eq('email', resetEmail.trim())
+          .maybeSingle();
+        if (studentRecord?.name) studentName = studentRecord.name;
+      } catch (_) { /* non-critical fallback */ }
+
       const response = await fetch('/api/send-password-reset', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email: resetEmail.trim() }),
+        body: JSON.stringify({ email: resetEmail.trim(), studentName }),
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data = {};
+      try {
+        if (responseText) {
+          data = JSON.parse(responseText);
+        } else {
+          throw new Error('Empty response');
+        }
+      } catch (e) {
+        if (responseText.includes('<!DOCTYPE html>') || responseText.includes('<!doctype html>')) {
+          throw new Error('Local API endpoint not found. Please run your app using "vercel dev" to enable serverless functions locally, or deploy to Vercel.');
+        }
+        throw new Error(responseText.substring(0, 100) || `Server returned an empty or invalid response (Status ${response.status}).`);
+      }
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to send reset link.');
       }
 
-      setResetSuccess('A password reset link has been emailed to you. Please check your inbox.');
+      setResetSuccess('রিসেট লিংকটি তোমার ইমেইলে পাঠানো হয়েছে। ইনবক্স চেক করো।');
       setResetEmail('');
     } catch (err) {
       setResetError(err.message || 'Error occurred while sending password reset request');
